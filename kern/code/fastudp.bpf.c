@@ -56,107 +56,107 @@ unmarshal the msg,and get:
     To
     Type
 */
-static inline __u32 UnmarshalType(char* payload, void* data_end){
-    __u8 b = 0;
-    __u64 wire = 0;
-    __u32 shift = 0;
-    __u32 fieldNum = 0;
-    __u32 wireType = 0;
+// static inline __u32 UnmarshalType(char* payload, void* data_end){
+//     __u8 b = 0;
+//     __u64 wire = 0;
+//     __u32 shift = 0;
+//     __u32 fieldNum = 0;
+//     __u32 wireType = 0;
 
-    if (payload + sizeof(__u8) > data_end) return -1;
-    b = *payload; // 0xa
-    payload = payload + sizeof(__u8);
-    wire |= ((__u64)b & 0x7F);
-    fieldNum = (__u32)(wire>>3); // 1
-    wireType = (__u32)(wire&0x7);  // 2
+//     if (payload + sizeof(__u8) > data_end) return -1;
+//     b = *payload; // 0xa
+//     payload = payload + sizeof(__u8);
+//     wire |= ((__u64)b & 0x7F);
+//     fieldNum = (__u32)(wire>>3); // 1
+//     wireType = (__u32)(wire&0x7);  // 2
 
-    __u32 msgLen = 0; // how long is a Message that is marshalled
-    #pragma clang loop unroll(full)
-    for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
-        shift = i * 7;
-        if (payload + sizeof(__u8) > data_end) return -1;
-        b = *payload;
-        payload = payload + sizeof(__u8);
-        msgLen |= ((__u64)b & 0x7F) << shift;
-        if(b < 0x80){ // the Varint is over
-			break;
-		}
-    }
+//     __u32 msgLen = 0; // how long is a Message that is marshalled
+//     #pragma clang loop unroll(full)
+//     for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
+//         shift = i * 7;
+//         if (payload + sizeof(__u8) > data_end) return -1;
+//         b = *payload;
+//         payload = payload + sizeof(__u8);
+//         msgLen |= ((__u64)b & 0x7F) << shift;
+//         if(b < 0x80){ // the Varint is over
+// 			break;
+// 		}
+//     }
 
-    if (payload + sizeof(__u8) > data_end) return -1;
-    b = *payload; // 0x8
-    payload = payload + sizeof(__u8);
-    wire |= ((__u64)b & 0x7F);
-    fieldNum = (__u32)(wire>>3); // 1
-    wireType = (__u32)(wire&0x7);  // 0
+//     if (payload + sizeof(__u8) > data_end) return -1;
+//     b = *payload; // 0x8
+//     payload = payload + sizeof(__u8);
+//     wire |= ((__u64)b & 0x7F);
+//     fieldNum = (__u32)(wire>>3); // 1
+//     wireType = (__u32)(wire&0x7);  // 0
 
-    __u32 Type = 0; // Message Type
-    #pragma clang loop unroll(full)
-    for(int i=0;i<20;i++){
-        shift = i * 7;
-        if (payload + sizeof(__u8) > data_end) return -1;
-        b = *payload;
-        payload = payload + sizeof(__u8);
-        Type |= ((__u64)b & 0x7F) << shift;
-        if(b < 0x80){
-			break;
-		}
-    }
+//     __u32 Type = 0; // Message Type
+//     #pragma clang loop unroll(full)
+//     for(int i=0;i<20;i++){
+//         shift = i * 7;
+//         if (payload + sizeof(__u8) > data_end) return -1;
+//         b = *payload;
+//         payload = payload + sizeof(__u8);
+//         Type |= ((__u64)b & 0x7F) << shift;
+//         if(b < 0x80){
+// 			break;
+// 		}
+//     }
 
-    return Type;
-}
+//     return Type;
+// }
 
-static inline __u32 UnmarshalTo(__u64* To, char* payload, void* data_end){
-    __u8 b = 0;
-    __u64 wire = 0;
-    __u32 shift = 0;
-    __u32 fieldNum = 0;
-    __u32 wireType = 0;
+// static inline __u32 UnmarshalTo(__u64* To, char* payload, void* data_end){
+//     __u8 b = 0;
+//     __u64 wire = 0;
+//     __u32 shift = 0;
+//     __u32 fieldNum = 0;
+//     __u32 wireType = 0;
 
-    __u32 lenTo = 0;
+//     __u32 lenTo = 0;
 
-    #pragma clang loop unroll(full)
-    for(int i=0;i<NODE_MAX_NUM;i++){
-        if (payload + sizeof(__u8) > data_end) return -1;
-        b = *payload; // 0x12
-        payload = payload + sizeof(__u8);
-        wire |= ((__u64)b & 0x7F);
-        fieldNum = (__u32)(wire>>3); // 2
-        wireType = (__u32)(wire&0x7);  // 2
-        if(fieldNum != 2) break; // 0x18 -> next field
-        lenTo++;
+//     #pragma clang loop unroll(full)
+//     for(int i=0;i<NODE_MAX_NUM;i++){
+//         if (payload + sizeof(__u8) > data_end) return -1;
+//         b = *payload; // 0x12
+//         payload = payload + sizeof(__u8);
+//         wire |= ((__u64)b & 0x7F);
+//         fieldNum = (__u32)(wire>>3); // 2
+//         wireType = (__u32)(wire&0x7);  // 2
+//         if(fieldNum != 2) break; // 0x18 -> next field
+//         lenTo++;
 
-        __u32 msgLen = 0; // how long is a To[i] that is marshalled
-        #pragma clang loop unroll(full)
-        for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
-            shift = i * 7;
-            if (payload + sizeof(__u8) > data_end) return -1;
-            b = *payload;
-            payload = payload + sizeof(__u8);
-            msgLen |= ((__u64)b & 0x7F) << shift;
-            if(b < 0x80){ // the Varint is over
-                break;
-            }
-        }
+//         __u32 msgLen = 0; // how long is a To[i] that is marshalled
+//         #pragma clang loop unroll(full)
+//         for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
+//             shift = i * 7;
+//             if (payload + sizeof(__u8) > data_end) return -1;
+//             b = *payload;
+//             payload = payload + sizeof(__u8);
+//             msgLen |= ((__u64)b & 0x7F) << shift;
+//             if(b < 0x80){ // the Varint is over
+//                 break;
+//             }
+//         }
 
-        __u32 Toi = 0; // how long is a To[i] that is marshalled
-        #pragma clang loop unroll(full)
-        for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
-            shift = i * 7;
-            if (payload + sizeof(__u8) > data_end) return -1;
-            b = *payload;
-            payload = payload + sizeof(__u8);
-            Toi |= ((__u64)b & 0x7F) << shift;
-            if(b < 0x80){ // the Varint is over
-                break;
-            }
-        }
-        To[i] = Toi;
+//         __u32 Toi = 0; // how long is a To[i] that is marshalled
+//         #pragma clang loop unroll(full)
+//         for(int i=0;i<20;i++){ // 20 is just a number that is big eunogh
+//             shift = i * 7;
+//             if (payload + sizeof(__u8) > data_end) return -1;
+//             b = *payload;
+//             payload = payload + sizeof(__u8);
+//             Toi |= ((__u64)b & 0x7F) << shift;
+//             if(b < 0x80){ // the Varint is over
+//                 break;
+//             }
+//         }
+//         To[i] = Toi;
 
-    }
+//     }
 
-    return lenTo;    
-}
+//     return lenTo;    
+// }
 
 /*
 stop a message from functions below:
@@ -180,7 +180,7 @@ int FastBroadCast_main(struct __sk_buff *skb) {
     /* ---parse appl head---
     Electorde's Appl: magic -- typelen -- typestr -- FAST_PAXOS_DATA_LEN
 	Dragonboat's Appl: magic(2byte) -- requestHeader = method uint16 + size uint64
-	+ checksum uint32 +crc uint32 -- FAST_DATA_LEN */
+	+ checksum uint32 +crc uint32 -- bieset uint64(lowest bit represent No.0) */
 	if (payload + MAGIC_LEN > data_end) return TC_ACT_OK; // don't have magic bits...
     // net use:bigEidian & raft magic: magicNumber = [2]byte{0xAE, 0x7D}
     if (payload[0] != 0x7D || payload[1] != 0xAE) return TC_ACT_OK;
@@ -188,9 +188,9 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 
 	if (payload + sizeof(__u16) > data_end) return TC_ACT_OK; 
 	__u16* method = *(__u16 *)payload; // it's a pointer, because I will modify it
-    // the low 8 bit indicate type(beacause 100 and 200 is less then 255), but 
-    // high 8 bit is used to indicate the destination of the msg
-    __u16 methodC = (*method) & (1 << 8 - 1);
+    // the low 8 bit indicate type(beacause 100-raftType and 200-snapshotType is less then 255), but 
+    // high 8 bit is used to store the index of nodehost, which indicates the destination of the msg
+    __u16 methodC = (*method) & (1 << 8 - 1); // lower 8 bits
     if(methodC != raftType) return TC_ACT_OK;
 	payload = payload + sizeof(__u16);
 
@@ -209,22 +209,27 @@ int FastBroadCast_main(struct __sk_buff *skb) {
     // check it ?
 	payload = payload + sizeof(__u32);
 
-    /* ---parse the user data--- */
-    __u32 Type = UnmarshalType(payload, data_end);
-    __u32 lenTo = 0;
-    __u64 To[NODE_MAX_NUM];
-    lenTo = UnmarshalTo(To, payload, data_end);
+    if (payload + sizeof(__u64) > data_end) return TC_ACT_OK; 
+	__u64 bitset = *(__u64 *)payload;
+    // check it ?
+	payload = payload + sizeof(__u64);    
 
-    // Type: pb.Replicate pb.Heartbeat
-    if(Type != Replicate && Type != Heartbeat) return TC_ACT_OK; 
-    // we do not use bitset for now
+    __u32 lenTo = 0;
+    __u64 To[NODE_MAX_NUM]; // record the index of nodehost to send
+
+    for(int i=0;i<=63;i++){
+        if(bitset&(1<<i)){
+            lenTo += 1;
+            To[lenTo-1] = i;
+        }
+    }
 
     /* do the clone */
     __u32 id = 0;
     if((*method)>>8 == 0){ // the boardcast msg
         for(int i=1;i<lenTo;i++){
             id = To[i];
-            *method = (*method) | (__u16)(id << 8);
+            *method = (*method) | (__u16)(id << 8); // high 8 bits is eunough, because 256>64
             bpf_clone_redirect(skb, skb -> ifindex, 0);
         }
         id = To[0];
@@ -244,7 +249,7 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	if (payload + sizeof(__u16) > data_end) return TC_ACT_SHOT; // drop all the broken msg
 	method = payload;
 	payload = payload + sizeof(__u16);
-	if (payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32) > data_end) return TC_ACT_SHOT;
+	if (payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32) + sizeof(__u64) > data_end) return TC_ACT_SHOT;
 
     *method = (*method) & (1 << 8 - 1);
 	struct paxos_configure *replicaInfo = bpf_map_lookup_elem(&map_configure, &id);

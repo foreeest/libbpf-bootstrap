@@ -34,7 +34,7 @@
 #define QUORUM_SIZE ((CLUSTER_SIZE + 1) >> 1)
 #define QUORUM_BITSET_ENTRY 1024 // must be 2^t
 
-#define NODE_MAX_NUM 32
+#define NODE_MAX_NUM 64
 
 // very complex msg, can not parse the whole
 
