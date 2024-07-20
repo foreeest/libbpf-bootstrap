@@ -1,5 +1,7 @@
 # note of fastudp development #
 
+we can see more detail [here](https://github.com/HJPFHMATRIX/Project266/blob/main/src/programming.md)   
+
 ## related to dragonboat ##
 
 - the port are set to 12345    
@@ -10,4 +12,8 @@
 
 
 ## run the code ##
-
+```shell
+$ cd src/myBPF/kern/code 
+$ make fastudp
+$ sudo ./fastudp
+```
