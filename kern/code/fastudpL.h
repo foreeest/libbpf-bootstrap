@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef _FAST_COMMON_H // need to modify?
+#ifndef _FAST_COMMON_H
 #define _FAST_COMMON_H
 
 #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
@@ -103,7 +103,7 @@ enum {
 struct paxos_configure {
 	__u32 addr; // ipv4.
 	__u16 port;
-	char eth[ETH_ALEN];
+	unsigned char eth[ETH_ALEN];
 };
 
 #endif
