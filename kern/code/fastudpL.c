@@ -10,7 +10,7 @@
 #include "fastudpL.skel.h"
 #include "fastudpL.h"
 
-#define IFINDEX 2 // modify it
+#define IFINDEX 1 // modify it `ip addr`
 
 static const char* base_folder = "/sys/fs/bpf";
 
@@ -113,11 +113,16 @@ int main(int argc, char **argv)
 	char str[INET_ADDRSTRLEN];
 	struct paxos_configure conf;
 	// we need to modify this
-	const char *eths[NODE_MAX_NUM] = {"00:1c:42:18:90:ce",
-										"00:1c:42:18:90:ce", 
-										"00:1c:42:18:90:ce", 
-										"", 
-										""}; 
+	// const char *eths[NODE_MAX_NUM] = {"00:1c:42:18:90:ce",
+	// 									"00:1c:42:18:90:ce", 
+	// 									"00:1c:42:18:90:ce", 
+	// 									"", 
+	// 									""}; 
+	const char *eths[NODE_MAX_NUM] = {"00:00:00:00:00:00",
+									"00:00:00:00:00:00", 
+									"00:00:00:00:00:00", 
+									"", 
+									""}; 
 
 	fp = fopen("../config.txt", "r");
 	fscanf(fp, "%s", buff); // must be 'f'

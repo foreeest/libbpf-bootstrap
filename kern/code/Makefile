@@ -24,7 +24,7 @@ INCLUDES := -I$(OUTPUT) -I../../libbpf/include/uapi -I$(dir $(VMLINUX)) -I$(LIBB
 CFLAGS := -g -Wall
 ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 
-APPS = fastudp fastudpL#fastboardcast fastpaxos fast minimal minimal_legacy bootstrap uprobe kprobe fentry usdt sockfilter tc ksyscall task_iter lsm user_ringbuf replace textreplace2
+APPS = fastudp fastudpL tc#fastboardcast fastpaxos fast minimal minimal_legacy bootstrap uprobe kprobe fentry usdt sockfilter tc ksyscall task_iter lsm user_ringbuf replace textreplace2
 
 CARGO ?= $(shell which cargo)
 ifeq ($(strip $(CARGO)),)
