@@ -8,12 +8,11 @@
  *
  *  Author: asd123www <wzz@pku.edu.cn> et al.
  */
-// can be include ?
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef _FAST_COMMON_H // need to modify?
-#define _FAST_COMMON_H
+#ifndef _FASTUDP_H // need to modify?
+#define _FASTUDP_H
 
 #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
 

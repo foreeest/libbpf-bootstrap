@@ -21,6 +21,7 @@
 // #define IPPROTO_UDP 17
 
 #include <arpa/inet.h>
+#include <string.h>
 
 #include "fastudp.h"
 
@@ -49,6 +50,16 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip) {
     }
 
 	return ~((csum & 0xffff) + (csum >> 16));// 低16+高16
+}
+
+static inline __u32 FindFirstBit_u16(__u16 n)
+{
+    n = (n-1) & ~n;
+    n = ((n & 0xAAAA) >> 1) + (n & 0x5555);
+    n = ((n & 0xCCCC) >> 2) + (n & 0x3333);
+    n = ((n & 0xF0F0) >> 4) + (n & 0x0F0F);
+    n = ((n & 0xFF00) >> 8) + (n & 0x00FF);
+    return (__u32)n;
 }
 
 /*
@@ -165,78 +176,92 @@ stop a message from functions below:
 */
 SEC("tc")
 int FastBroadCast_main(struct __sk_buff *skb) {
-	void *data_end = (void *)(long)skb->data_end;
-	void *data     = (void *)(long)skb->data;
+	void *data_end = (void *)(__u64)skb->data_end;
+	void *data = (void *)(__u64)skb->data;
 	struct ethhdr *eth = data;
 	struct iphdr *ip = data + sizeof(struct ethhdr);
 	struct udphdr *udp = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 	char *payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr);
 
-	if (ip + 1 > data_end) return TC_ACT_OK;
+	if ((void *)(eth + 1) > data_end) return TC_ACT_OK;
+	if ((void *)(ip + 1) > data_end) return TC_ACT_OK;
 	if (ip->protocol != IPPROTO_UDP) return TC_ACT_OK;
-	if (udp + 1 > data_end) return TC_ACT_OK;
-	if (udp -> source != htons(12345)) return TC_ACT_OK; // port 也先12345
+
+	if ((void *)(udp + 1) > data_end) return TC_ACT_OK;
+
+	// print origin ip and mac addr if you like
+	// __u32 ipadd = ntohl(ip->daddr);
+	// bpf_printk("ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
+	// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
+	// bpf_printk("eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
+	// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+
+	// extend it
+	if (udp->dest!=htons(12379)&&udp->dest!=htons(22379)&&udp->dest!=htons(32379)
+	&&udp->dest!=htons(60000)&&udp->dest!=htons(60001)&&udp->dest!=htons(60002)&&udp->dest!=htons(60003)) return TC_ACT_OK; // local port
+	
+	// bpf_printk("from %d to %d\n",(int)ntohs(udp->source),(int)ntohs(udp->dest),(int)ntohs(udp->check));
 
     /* ---parse appl head---
-    Electorde's Appl: magic -- typelen -- typestr -- FAST_PAXOS_DATA_LEN
 	Dragonboat's Appl: magic(2byte) -- requestHeader = method uint16 + size uint64
-	+ checksum uint32 +crc uint32 -- bieset uint64(lowest bit represent No.0) */
-	if (payload + MAGIC_LEN > data_end) return TC_ACT_OK; // don't have magic bits...
+	+ checksum uint32 +crc uint32 -- bitset uint64(lowest bit represent No.0) */
+	if ((void *)(payload + MAGIC_LEN) > data_end) return TC_ACT_OK; // don't have magic bits...
     // net use:bigEidian & raft magic: magicNumber = [2]byte{0xAE, 0x7D}
-    if (payload[0] != 0x7D || payload[1] != 0xAE) return TC_ACT_OK;
+	// bpf_printk("magic num is %d and %d\n",(int)magic_0,(int)magic_1);
+    if ((__u8)(payload[0]) != (__u8)0xAE || (__u8)(payload[1]) != (__u8)0x7D) return TC_ACT_OK;
 	payload = payload + MAGIC_LEN;
 
-	if (payload + sizeof(__u16) > data_end) return TC_ACT_OK; 
-	__u16* method = *(__u16 *)payload; // it's a pointer, because I will modify it
-    // the low 8 bit indicate type(beacause 100-raftType and 200-snapshotType is less then 255), but 
-    // high 8 bit is used to store the index of nodehost, which indicates the destination of the msg
-    __u16 methodC = (*method) & (1 << 8 - 1); // lower 8 bits
-    if(methodC != raftType) return TC_ACT_OK;
+	if ((void *)(payload + sizeof(__u16)) > data_end) return TC_ACT_OK; 
+	__u16 method = *(__u16 *)payload;
+    if(method != htons((__u16)raftType)) return TC_ACT_OK;
 	payload = payload + sizeof(__u16);
-
-    if (payload + sizeof(__u64) > data_end) return TC_ACT_OK; 
+    if ((void *)(payload + sizeof(__u64)) > data_end) return TC_ACT_OK; 
 	__u64 size = *(__u64 *)payload;
-    // check it ? what is size?
 	payload = payload + sizeof(__u64);
-
-    if (payload + sizeof(__u32) > data_end) return TC_ACT_OK; 
+    if ((void *)(payload + sizeof(__u32)) > data_end) return TC_ACT_OK; 
 	__u32 checksum = *(__u32 *)payload;
-    // check it ?don't do this ,I have modify `method`,or we will do IEEECheckSum
 	payload = payload + sizeof(__u32);
-
-    if (payload + sizeof(__u32) > data_end) return TC_ACT_OK; 
+    if ((void *)(payload + sizeof(__u32)) > data_end) return TC_ACT_OK; 
 	__u32 crc = *(__u32 *)payload;
-    // check it ?
 	payload = payload + sizeof(__u32);
 
-    if (payload + sizeof(__u64) > data_end) return TC_ACT_OK; 
-	__u64 bitset = *(__u64 *)payload;
-    // check it ?
-	payload = payload + sizeof(__u64);    
+    if ((void *)(payload + sizeof(__u64)) > data_end) return TC_ACT_OK; 
+	// current only handle 32bit, beacuse ntoh only have 16 bit and 32 bit, and I don't want to do it myself
+	__u16* bitset_1 = (__u16 *)payload; // This is used to store the origin bitset
+	payload = payload + sizeof(__u16);
+	__u32 bitset_2 = *(__u32 *)payload; // I don't modify this
+	payload = payload + sizeof(__u32);
+	__u16* bitset_3 = (__u16 *)payload; // pointer, beacause I will modify
+	payload = payload + sizeof(__u16);    
+	bpf_printk("%d %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
 
-    __u32 lenTo = 0;
-    __u64 To[NODE_MAX_NUM]; // record the index of nodehost to send
+	if (__builtin_popcount((__u32)(*bitset_3))==1&&(*bitset_1) == 0){ // don't need broadcast,just process
+		// __u32 ipadd = ntohl(ip->daddr);
+		// bpf_printk("st:ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
+		// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
+		// bpf_printk("st:eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
+		// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+		return TC_ACT_OK;
+	}
 
-    for(int i=0;i<=63;i++){
-        if(bitset&(1<<i)){
-            lenTo += 1;
-            To[lenTo-1] = i;
-        }
-    }
+	if (*bitset_1 == 0){ // first store the origin biset, so I don't modify the appl in the end
+		*bitset_1 = *bitset_3;
+	}
 
-    /* do the clone */
-    __u32 id = 0;
-    if((*method)>>8 == 0){ // the boardcast msg
-        for(int i=1;i<lenTo;i++){
-            id = To[i];
-            *method = (*method) | (__u16)(id << 8); // high 8 bits is eunough, because 256>64
-            bpf_clone_redirect(skb, skb -> ifindex, 0);
-        }
-        id = To[0];
-    }else{ // the cloned msg
-        id = (*method) >> 8;
-    }
+	__u16 host_bs = ntohs((*bitset_3));	
+	__u32 id = FindFirstBit_u16(host_bs); // id start from 0
+	__u32 is_broadcast = __builtin_popcount((__u32)(host_bs)); // more than 1, need to broadcast
+	__u16 low_one = (host_bs) & (~(host_bs) + 1);
+	host_bs = host_bs ^ low_one; // clear the lowest one
 
+	*bitset_3 = htons(host_bs);
+
+	if (is_broadcast > 1){
+		bpf_printk("broadcast,bitset is %d\n",host_bs);
+		bpf_clone_redirect(skb, skb -> ifindex, 0);
+	}
+
+	// bpf_printk("after clone, this id is %d\n", id);
 	// Why so verbose? `bpf_clone_redirect` may change buffer — from linux manual. 确实
 	data_end = (void *)(long)skb->data_end;
 	data     = (void *)(long)skb->data;
@@ -246,20 +271,39 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + MAGIC_LEN;
     // TC_ACT_OK (0) - Signals that the packet should proceed.
 	// TC_ACT_SHOT (2) - Signals that the packet should be dropped, no other TC processing should happen.
-	if (payload + sizeof(__u16) > data_end) return TC_ACT_SHOT; // drop all the broken msg
-	method = payload;
-	payload = payload + sizeof(__u16);
-	if (payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32) + sizeof(__u64) > data_end) return TC_ACT_SHOT;
+	if ((void *)(payload + sizeof(__u16)) > data_end) return TC_ACT_SHOT; // drop all the broken msg
+	// method = *(__u16 *)payload;
+	payload = payload + sizeof(__u16); // skip method
+	if ((void *)(payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32) + sizeof(__u64)) > data_end) return TC_ACT_SHOT;
+	payload = payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32);
 
-    *method = (*method) & (1 << 8 - 1);
+	bitset_1 = (__u16 *)payload; 
+	payload = payload + sizeof(__u16);
+	bitset_2 = *(__u32 *)payload; 
+	payload = payload + sizeof(__u32);
+	bitset_3 = (__u16 *)payload; 
+	payload = payload + sizeof(__u16);
+	// get it back
+	*bitset_3 = *bitset_1;
+	*bitset_1 = 0;
+
 	struct paxos_configure *replicaInfo = bpf_map_lookup_elem(&map_configure, &id);
 	if (!replicaInfo) return TC_ACT_SHOT;
 	// 改成目标地址
 	udp -> dest = replicaInfo -> port;
 	udp -> check = 0; // just don't do checksum
-	ip -> daddr = replicaInfo -> addr;
+	ip -> daddr = replicaInfo -> addr; 
 	ip -> check = compute_ip_checksum(ip);
 	memcpy(eth -> h_dest, replicaInfo -> eth, ETH_ALEN);
+
+	bpf_printk("sent %d, %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
+
+	// ipadd = ntohl(ip->daddr);
+	// bpf_printk("sent:ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
+	// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
+	// bpf_printk("sent:eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
+	// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+
 
 	return TC_ACT_OK;
 }

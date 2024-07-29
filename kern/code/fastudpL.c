@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 									"", 
 									""}; 
 
-	fp = fopen("../config.txt", "r");
+	fp = fopen("../configL.txt", "r");
 	fscanf(fp, "%s", buff); // must be 'f'
 	fscanf(fp, "%d", &f);
 	for (int i = 0; i < 2*f + 1; ++i) {

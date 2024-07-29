@@ -8,7 +8,6 @@
 //#include <linux/in.h> 
 // IPPROTO_UDP
 //#include "linux/tools/lib/bpf/bpf_helpers.h"
-// 0513
 //#include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
@@ -24,17 +23,11 @@
 
 #include "fastudpL.h"
 
-// this is from Electrode, I don't know what is this
-#define ADJUST_HEAD_LEN 128
-#define MTU 1500
-#define MAX_DATA_LEN 64
-#define REQ_MAX_DATA_LEN 128
-
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, __u32);
 	__type(value, struct paxos_configure);
-	__uint(max_entries, FAST_REPLICA_MAX); // this can be set as
+	__uint(max_entries, NODE_MAX_NUM); // this can be set as
 } map_configure SEC(".maps");
 
 // IPv4头校验和，检测是否在传输中发生错误
