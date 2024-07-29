@@ -121,6 +121,10 @@ int main(int argc, char **argv)
 	const char *eths[NODE_MAX_NUM] = {"00:00:00:00:00:00",
 									"00:00:00:00:00:00", 
 									"00:00:00:00:00:00", 
+									"00:00:00:00:00:00",
+									"00:00:00:00:00:00",
+									"00:00:00:00:00:00",
+									"00:00:00:00:00:00",
 									"", 
 									""}; 
 
@@ -144,7 +148,7 @@ int main(int argc, char **argv)
 		conf.addr = sa.sin_addr.s_addr;
         
 		convert_mac_to_hex(eths[i], conf.eth);
-		printf("conf.eth is %d\n",conf.eth[i]);
+		// printf("conf.eth is %d\n",conf.eth[i]);
 		// sscanf(eths[i], "%x:%x:%x:%x:%x:%x", conf.eth, conf.eth + 1, conf.eth + 2, conf.eth + 3, conf.eth + 4, conf.eth + 5);
 		// printf("\n%02x:%02x\n\n",conf.eth,conf.eth[1]);
 		err = bpf_map_update_elem(map_configure_fd, &i, &conf, BPF_ANY);

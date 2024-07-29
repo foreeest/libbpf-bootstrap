@@ -51,12 +51,23 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip) {
 	return ~((csum & 0xffff) + (csum >> 16));// 低16+高16
 }
 
+// reference: https://www.cnblogs.com/sureZ-learning/p/17399693.html
 static inline __u32 FindFirstBit_u8(__u8 n)
 {
     n = (n-1) & ~n;
     n = ((n & 0xAA) >> 1) + (n & 0x55);
     n = ((n & 0xCC) >> 2) + (n & 0x33);
     n = ((n & 0xF0) >> 4) + (n & 0x0F);
+    return (__u32)n;
+}
+
+static inline __u32 FindFirstBit_u16(__u16 n)
+{
+    n = (n-1) & ~n;
+    n = ((n & 0xAAAA) >> 1) + (n & 0x5555);
+    n = ((n & 0xCCCC) >> 2) + (n & 0x3333);
+    n = ((n & 0xF0F0) >> 4) + (n & 0x0F0F);
+    n = ((n & 0xFF00) >> 8) + (n & 0x00FF);
     return (__u32)n;
 }
 
@@ -89,19 +100,20 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	if ((void *)(ip + 1) > data_end) return TC_ACT_OK;
 	if (ip->protocol != IPPROTO_UDP) return TC_ACT_OK;
 
+	if ((void *)(udp + 1) > data_end) return TC_ACT_OK;
+
 	// print origin ip and mac addr if you like
-	// bpf_printk("ip is %d\n",(int)ip->daddr);
 	// __u32 ipadd = ntohl(ip->daddr);
 	// bpf_printk("ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
-	// bpf_printk(".%u \n",(ipadd) & 0xFF);
+	// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
 	// bpf_printk("eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
 	// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
 
-	if ((void *)(udp + 1) > data_end) return TC_ACT_OK;
-	// only support 3 port
-	if (udp->dest!=htons(12379)&&udp->dest!=htons(22379)&&udp->dest!=htons(32379)) return TC_ACT_OK; // local port
+	// extend it
+	if (udp->dest!=htons(12379)&&udp->dest!=htons(22379)&&udp->dest!=htons(32379)
+	&&udp->dest!=htons(60000)&&udp->dest!=htons(60001)&&udp->dest!=htons(60002)&&udp->dest!=htons(60003)) return TC_ACT_OK; // local port
 	
-	// bpf_printk("Enter FastBroadcast!origin from %d to %d\n",(int)ntohs(udp->source),(int)ntohs(udp->dest),(int)ntohs(udp->check));
+	// bpf_printk("from %d to %d\n",(int)ntohs(udp->source),(int)ntohs(udp->dest),(int)ntohs(udp->check));
 
     /* ---parse appl head---
 	Dragonboat's Appl: magic(2byte) -- requestHeader = method uint16 + size uint64
@@ -128,26 +140,37 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 
     if ((void *)(payload + sizeof(__u64)) > data_end) return TC_ACT_OK; 
 	// current only handle 32bit, beacuse ntoh only have 16 bit and 32 bit, and I don't want to do it myself
-	__u32* bitset_1 = (__u32 *)payload; // This is used to store the origin bitset
+	__u16* bitset_1 = (__u16 *)payload; // This is used to store the origin bitset
+	payload = payload + sizeof(__u16);
+	__u32 bitset_2 = *(__u32 *)payload; // I don't modify this
 	payload = payload + sizeof(__u32);
-	__u32* bitset_2 = (__u32 *)payload; // pointer, beacause I will modify
-	payload = payload + sizeof(__u32);    
-	// bpf_printk("%d %d\n",(int)ntohl(*bitset_1),(int)ntohl(*bitset_2));
+	__u16* bitset_3 = (__u16 *)payload; // pointer, beacause I will modify
+	payload = payload + sizeof(__u16);    
+	bpf_printk("%d %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
 
-	if (*bitset_1 == 0){ // first store the origin biset, so I don't modify the appl in the end
-		*bitset_1 = *bitset_2;
+	if (__builtin_popcount((__u32)(*bitset_3))==1&&(*bitset_1) == 0){ // don't need broadcast,just process
+		// __u32 ipadd = ntohl(ip->daddr);
+		// bpf_printk("st:ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
+		// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
+		// bpf_printk("st:eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
+		// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+		return TC_ACT_OK;
 	}
 
-	__u32 host_bs = ntohl((*bitset_2));	
-	__u32 id = FindFirstBit_u32(host_bs); // id start from 0
-	__u32 is_broadcast = __builtin_popcount(host_bs); // more than 1, need to broadcast
-	__u32 low_one = (host_bs) & (~(host_bs) + 1);
+	if (*bitset_1 == 0){ // first store the origin biset, so I don't modify the appl in the end
+		*bitset_1 = *bitset_3;
+	}
+
+	__u16 host_bs = ntohs((*bitset_3));	
+	__u32 id = FindFirstBit_u16(host_bs); // id start from 0
+	__u32 is_broadcast = __builtin_popcount((__u32)(host_bs)); // more than 1, need to broadcast
+	__u16 low_one = (host_bs) & (~(host_bs) + 1);
 	host_bs = host_bs ^ low_one; // clear the lowest one
 
-	*bitset_2 = htonl(host_bs);
+	*bitset_3 = htons(host_bs);
 
 	if (is_broadcast > 1){
-		// bpf_printk("broadcast,bitset is %d\n",host_bs);
+		bpf_printk("broadcast,bitset is %d\n",host_bs);
 		bpf_clone_redirect(skb, skb -> ifindex, 0);
 	}
 
@@ -167,12 +190,14 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	if ((void *)(payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32) + sizeof(__u64)) > data_end) return TC_ACT_SHOT;
 	payload = payload + sizeof(__u64) + sizeof(__u32) + sizeof(__u32);
 
-	bitset_1 = (__u32 *)payload; 
+	bitset_1 = (__u16 *)payload; 
+	payload = payload + sizeof(__u16);
+	bitset_2 = *(__u32 *)payload; 
 	payload = payload + sizeof(__u32);
-	bitset_2 = (__u32 *)payload; 
-	payload = payload + sizeof(__u32);
+	bitset_3 = (__u16 *)payload; 
+	payload = payload + sizeof(__u16);
 	// get it back
-	*bitset_2 = *bitset_1;
+	*bitset_3 = *bitset_1;
 	*bitset_1 = 0;
 
 	struct paxos_configure *replicaInfo = bpf_map_lookup_elem(&map_configure, &id);
@@ -183,7 +208,15 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	ip -> daddr = replicaInfo -> addr; 
 	ip -> check = compute_ip_checksum(ip);
 	memcpy(eth -> h_dest, replicaInfo -> eth, ETH_ALEN);
-	// bpf_printk("sent %d, %d\n",(int)ntohl(*bitset_1),(int)ntohl(*bitset_2));
+
+	bpf_printk("sent %d, %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
+
+	// ipadd = ntohl(ip->daddr);
+	// bpf_printk("sent:ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
+	// bpf_printk(".%u:%d \n",(ipadd) & 0xFF,ntohs(udp->dest));
+	// bpf_printk("sent:eth is %02X:%02X:%02X",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2]);
+	// bpf_printk("%02X:%02X:%02X\n",eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+
 
 	return TC_ACT_OK;
 }
