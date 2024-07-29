@@ -3,6 +3,30 @@
 [![Github Actions](https://github.com/libbpf/libbpf-bootstrap/actions/workflows/build.yml/badge.svg)](https://github.com/libbpf/libbpf-bootstrap/actions/workflows/build.yml)
 [![Github Actions](https://github.com/libbpf/libbpf-bootstrap/actions/workflows/build-android.yml/badge.svg)](https://github.com/libbpf/libbpf-bootstrap/actions/workflows/build-android.yml)
 
+## udp
+fastudp and fastudpL is for [dragonboat](https://github.com/foreeest/dragonboat), it implement the FastBroadcast  
+
+### run the code
+
+- modify the IPv4 in kern/*.txt   
+- modify the MAC addr in fastudp*.c
+- modify the `IFINDEX` in fastudp*.c according to `ip addr`  
+
+```shell
+$ cd kern/code 
+$ make fastudp # should be no warning
+$ sudo ./fastudp
+# add L, if you run it locally,eg:
+$ make fastudpL
+$ sudo ./fastudpL
+```
+you can end it by controlC
+
+- watch the output of `bpf_printk` by
+```shell
+$ sudo cat /sys/kernel/debug/tracing/trace_pipe
+```
+
 ## minimal
 
 `minimal` is just that – a minimal practical BPF application example. It
