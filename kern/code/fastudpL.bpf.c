@@ -139,7 +139,7 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	payload = payload + sizeof(__u32);
 	__u16* bitset_3 = (__u16 *)payload; // pointer, beacause I will modify
 	payload = payload + sizeof(__u16);    
-	bpf_printk("%d %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
+	// bpf_printk("%d %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
 
 	if (__builtin_popcount((__u32)(*bitset_3))==1&&(*bitset_1) == 0){ // don't need broadcast,just process
 		// __u32 ipadd = ntohl(ip->daddr);
@@ -163,7 +163,7 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	*bitset_3 = htons(host_bs);
 
 	if (is_broadcast > 1){
-		bpf_printk("broadcast,bitset is %d\n",host_bs);
+		// bpf_printk("broadcast,bitset is %d\n",host_bs);
 		bpf_clone_redirect(skb, skb -> ifindex, 0);
 	}
 
@@ -202,7 +202,7 @@ int FastBroadCast_main(struct __sk_buff *skb) {
 	ip -> check = compute_ip_checksum(ip);
 	memcpy(eth -> h_dest, replicaInfo -> eth, ETH_ALEN);
 
-	bpf_printk("sent %d, %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
+	// bpf_printk("sent %d, %d\n",(int)ntohs(*bitset_1),(int)ntohs(*bitset_3));
 
 	// ipadd = ntohl(ip->daddr);
 	// bpf_printk("sent:ip is %u.%u.%u",((ipadd)>>24) & 0xFF, ((ipadd)>>16) & 0xFF,((ipadd)>>8) & 0xFF);
